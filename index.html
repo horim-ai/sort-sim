@@ -1,0 +1,624 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>정렬 레이스 (Sort Race) - 교과 시뮬레이터</title>
+  <!-- Tailwind CSS 로드 -->
+  <script src="https://cdn.tailwindcss.com"></script>
+  <!-- Google Fonts: Inter 및 Noto Sans KR -->
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700;800&family=Noto+Sans+KR:wght@400;500;700;900&display=swap" rel="stylesheet">
+  <style>
+    body {
+      font-family: 'Noto Sans KR', 'Inter', sans-serif;
+      background-color: #f8fafc;
+      color: #0f172a;
+      -webkit-tap-highlight-color: transparent;
+    }
+
+    /* 모바일 터치에 최적화된 큼직한 레인지 슬라이더 커스텀 */
+    input[type="range"] {
+      -webkit-appearance: none;
+      width: 100%;
+      height: 14px;
+      border-radius: 999px;
+      background: #e2e8f0;
+      outline: none;
+    }
+    input[type="range"]::-webkit-slider-thumb {
+      -webkit-appearance: none;
+      appearance: none;
+      width: 32px;
+      height: 32px;
+      border-radius: 50%;
+      background: #2563eb;
+      cursor: pointer;
+      box-shadow: 0 2px 6px rgba(37, 99, 235, 0.4);
+      border: 3px solid #ffffff;
+      transition: transform 0.1s ease;
+    }
+    input[type="range"]::-webkit-slider-thumb:active {
+      transform: scale(1.15);
+    }
+    input[type="range"]:disabled {
+      opacity: 0.5;
+    }
+
+    /* 막대그래프 전환 애니메이션 */
+    .bar-item {
+      transition: height 0.18s ease, background-color 0.12s ease;
+    }
+  </style>
+</head>
+<body class="min-h-screen flex flex-col justify-between p-3 sm:p-6 max-w-3xl mx-auto select-none">
+
+  <!-- 상단 헤더 -->
+  <header class="text-center mb-4">
+    <div class="inline-flex items-center gap-2 bg-blue-100 text-blue-800 px-3 py-1 rounded-full text-sm font-bold mb-1">
+      <span>🏁 고등학교 정보 · 알고리즘 도입</span>
+    </div>
+    <h1 class="text-2xl sm:text-3xl font-black tracking-tight text-slate-900">
+      정렬 레이스 <span class="text-blue-600">(Sort Race)</span>
+    </h1>
+    <p class="text-slate-600 text-sm sm:text-base mt-1">
+      데이터를 비교하고 교환하는 과정을 눈으로 직접 확인해 보세요!
+    </p>
+  </header>
+
+  <main class="flex-1 flex flex-col gap-4">
+    
+    <!-- 1. 결과 영역 (실시간 카운터 + 막대그래프 시각화) -->
+    <section class="bg-white rounded-2xl shadow-sm border border-slate-200 p-4 sm:p-5">
+      
+      <!-- 대형 수치 카운터 -->
+      <div class="grid grid-cols-2 gap-3 mb-4">
+        <div class="bg-amber-50 border border-amber-200 rounded-xl p-3 text-center">
+          <div class="text-xs sm:text-sm font-bold text-amber-800 mb-0.5">👀 총 비교 횟수</div>
+          <div id="compare-count" class="text-2xl sm:text-4xl font-black text-amber-600 tabular-nums">0</div>
+        </div>
+        <div class="bg-rose-50 border border-rose-200 rounded-xl p-3 text-center">
+          <div class="text-xs sm:text-sm font-bold text-rose-800 mb-0.5">🔄 총 교환(이동) 횟수</div>
+          <div id="swap-count" class="text-2xl sm:text-4xl font-black text-rose-600 tabular-nums">0</div>
+        </div>
+      </div>
+
+      <!-- 색상 범례 -->
+      <div class="flex flex-wrap justify-center gap-3 sm:gap-5 text-xs sm:text-sm font-semibold text-slate-600 mb-3">
+        <div class="flex items-center gap-1.5">
+          <span class="w-3.5 h-3.5 rounded-sm bg-blue-500 inline-block"></span> 기본
+        </div>
+        <div class="flex items-center gap-1.5">
+          <span class="w-3.5 h-3.5 rounded-sm bg-amber-400 inline-block"></span> 비교 중
+        </div>
+        <div class="flex items-center gap-1.5">
+          <span class="w-3.5 h-3.5 rounded-sm bg-rose-500 inline-block"></span> 교환/이동
+        </div>
+        <div class="flex items-center gap-1.5">
+          <span class="w-3.5 h-3.5 rounded-sm bg-emerald-500 inline-block"></span> 정렬 완료
+        </div>
+      </div>
+
+      <!-- 막대그래프 캔버스 컨테이너 -->
+      <div class="relative w-full h-56 sm:h-64 bg-slate-100 rounded-xl p-3 sm:p-4 flex items-end justify-center gap-1 sm:gap-1.5 overflow-hidden border border-slate-200" id="bar-container">
+        <!-- JavaScript로 막대 동적 생성 -->
+      </div>
+
+      <!-- 현재 상태 안내 메시지 -->
+      <div id="status-message" class="mt-3 text-center text-sm sm:text-base font-bold text-slate-700 bg-slate-100 py-2 px-3 rounded-lg">
+        조건을 선택한 뒤 [정렬 시작] 버튼을 눌러주세요!
+      </div>
+    </section>
+
+    <!-- 2. 조작 영역 (모바일 터치 최적화 큼직한 버튼/슬라이더) -->
+    <section class="bg-white rounded-2xl shadow-sm border border-slate-200 p-4 sm:p-5 flex flex-col gap-5">
+      
+      <!-- 조작 1: 정렬 알고리즘 선택 -->
+      <div>
+        <label class="block text-base font-bold text-slate-800 mb-2">1. 정렬 알고리즘 선택</label>
+        <div class="grid grid-cols-3 gap-2" id="algo-buttons">
+          <button type="button" data-algo="bubble" class="algo-btn py-3.5 px-2 rounded-xl font-bold text-base border-2 border-blue-600 bg-blue-600 text-white shadow-sm transition active:scale-95">
+            버블 정렬
+          </button>
+          <button type="button" data-algo="selection" class="algo-btn py-3.5 px-2 rounded-xl font-bold text-base border-2 border-slate-200 bg-slate-50 text-slate-700 hover:bg-slate-100 transition active:scale-95">
+            선택 정렬
+          </button>
+          <button type="button" data-algo="insertion" class="algo-btn py-3.5 px-2 rounded-xl font-bold text-base border-2 border-slate-200 bg-slate-50 text-slate-700 hover:bg-slate-100 transition active:scale-95">
+            삽입 정렬
+          </button>
+        </div>
+      </div>
+
+      <!-- 조작 2: 데이터 개수 조절 -->
+      <div>
+        <div class="flex justify-between items-center mb-2">
+          <label for="size-slider" class="text-base font-bold text-slate-800">2. 데이터 개수 (1 ~ N)</label>
+          <span class="bg-blue-100 text-blue-800 font-black px-3 py-1 rounded-lg text-base">
+            <span id="size-value">12</span>개
+          </span>
+        </div>
+        <div class="py-2">
+          <input type="range" id="size-slider" min="5" max="30" value="12" />
+        </div>
+        <div class="flex justify-between text-xs font-semibold text-slate-400 px-1">
+          <span>5개 (최소)</span>
+          <span>15개</span>
+          <span>30개 (최대)</span>
+        </div>
+      </div>
+
+      <!-- 조작 3: 초기 배열 상태 -->
+      <div>
+        <label class="block text-base font-bold text-slate-800 mb-2">3. 초기 배열 상태</label>
+        <div class="grid grid-cols-3 gap-2" id="order-buttons">
+          <button type="button" data-order="random" class="order-btn py-3.5 px-2 rounded-xl font-bold text-sm sm:text-base border-2 border-indigo-600 bg-indigo-600 text-white shadow-sm transition active:scale-95">
+            🎲 무작위
+          </button>
+          <button type="button" data-order="sorted" class="order-btn py-3.5 px-2 rounded-xl font-bold text-sm sm:text-base border-2 border-slate-200 bg-slate-50 text-slate-700 hover:bg-slate-100 transition active:scale-95">
+            📈 이미 정렬됨
+          </button>
+          <button type="button" data-order="reversed" class="order-btn py-3.5 px-2 rounded-xl font-bold text-sm sm:text-base border-2 border-slate-200 bg-slate-50 text-slate-700 hover:bg-slate-100 transition active:scale-95">
+            📉 역순 정렬됨
+          </button>
+        </div>
+      </div>
+
+      <!-- 조작 4: 애니메이션 재생 속도 (실행 중에도 실시간 변경 가능) -->
+      <div>
+        <div class="flex justify-between items-center mb-2">
+          <label class="text-base font-bold text-slate-800">4. 재생 속도</label>
+          <span class="text-xs font-semibold text-slate-500">실행 중에도 변경 가능</span>
+        </div>
+        <div class="grid grid-cols-3 gap-2" id="speed-buttons">
+          <button type="button" data-speed="slow" class="speed-btn py-3 px-2 rounded-xl font-bold text-sm sm:text-base border-2 border-slate-200 bg-slate-50 text-slate-700 hover:bg-slate-100 transition active:scale-95">
+            🐢 느리게
+          </button>
+          <button type="button" data-speed="normal" class="speed-btn py-3 px-2 rounded-xl font-bold text-sm sm:text-base border-2 border-teal-600 bg-teal-600 text-white shadow-sm transition active:scale-95">
+            🚶 보통
+          </button>
+          <button type="button" data-speed="fast" class="speed-btn py-3 px-2 rounded-xl font-bold text-sm sm:text-base border-2 border-slate-200 bg-slate-50 text-slate-700 hover:bg-slate-100 transition active:scale-95">
+            ⚡ 빠르게
+          </button>
+        </div>
+      </div>
+
+      <!-- 실행 / 초기화 메인 버튼 -->
+      <div class="grid grid-cols-5 gap-3 pt-1">
+        <button type="button" id="start-btn" class="col-span-3 py-4 px-4 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white font-black text-lg sm:text-xl shadow-md transition active:scale-95 flex items-center justify-center gap-2">
+          <span>▶ 정렬 시작</span>
+        </button>
+        <button type="button" id="reset-btn" class="col-span-2 py-4 px-4 rounded-xl bg-slate-700 hover:bg-slate-800 text-white font-bold text-base sm:text-lg shadow-md transition active:scale-95 flex items-center justify-center gap-1.5">
+          <span>↺ 초기화</span>
+        </button>
+      </div>
+    </section>
+
+    <!-- 3. 원리 영역 (공식·규칙 및 단순화한 부분, 탐구 과제) -->
+    <section class="bg-slate-800 text-slate-100 rounded-2xl shadow-sm p-4 sm:p-5">
+      <button type="button" id="toggle-principle-btn" class="w-full flex justify-between items-center text-left font-bold text-base sm:text-lg py-1">
+        <span class="flex items-center gap-2">
+          <span>💡 알고리즘 원리 및 탐구 과제 보기</span>
+        </span>
+        <span id="principle-arrow" class="text-xl transition-transform duration-200">▼</span>
+      </button>
+
+      <div id="principle-content" class="mt-4 pt-4 border-t border-slate-700 flex flex-col gap-4 text-sm sm:text-base leading-relaxed">
+        
+        <!-- 선택된 알고리즘 규칙 -->
+        <div class="bg-slate-900/70 p-3.5 rounded-xl border border-slate-700">
+          <div class="text-amber-400 font-bold mb-1" id="rule-title">📌 현재 선택: 버블 정렬의 동작 규칙</div>
+          <p class="text-slate-200" id="rule-desc">
+            서로 인접한 두 원소를 차례대로 비교하여, 앞의 값이 뒤의 값보다 크면 서로 자리를 교환합니다. 한 회전이 끝날 때마다 가장 큰 값이 맨 뒤로 이동합니다.
+          </p>
+        </div>
+
+        <!-- 탐구 과제 -->
+        <div class="bg-blue-950/60 p-3.5 rounded-xl border border-blue-800/60">
+          <div class="text-blue-300 font-bold mb-1.5">🔍 스스로 해결하는 탐구 과제</div>
+          <ul class="list-disc list-inside space-y-1.5 text-slate-200">
+            <li><strong>과제 1:</strong> 데이터가 <strong>'이미 정렬됨'</strong> 상태일 때, 비교와 교환 횟수가 가장 적은 알고리즘은 무엇인가요?</li>
+            <li><strong>과제 2:</strong> '무작위' 상태에서 데이터 개수를 <strong>10개 → 20개(2배)</strong>로 늘리면, 비교 횟수는 약 몇 배로 늘어나나요?</li>
+          </ul>
+        </div>
+
+        <!-- 데이터·공식 및 단순화한 부분 -->
+        <div class="text-xs sm:text-sm text-slate-300 space-y-1.5 bg-slate-700/40 p-3.5 rounded-xl">
+          <p><strong class="text-white">• 카운트 규칙:</strong> 두 원소의 크기를 비교할 때마다 <span class="text-amber-300 font-semibold">비교 횟수 +1</span>, 원소의 위치가 바뀔 때마다 <span class="text-rose-300 font-semibold">교환(이동) 횟수 +1</span>을 기록합니다.</p>
+          <p><strong class="text-white">• 단순화한 부분:</strong> 실제 컴퓨터 데이터와 달리 중복된 숫자를 제외하고 <strong>1부터 N까지의 고유한 자연수</strong>만 사용하여 막대 높이와 크기 비교를 직관적으로 단순화했습니다.</p>
+        </div>
+
+      </div>
+    </section>
+
+  </main>
+
+  <!-- 푸터 -->
+  <footer class="text-center text-xs text-slate-400 mt-5 pb-2">
+    개인정보를 수집하지 않는 교육용 시뮬레이터 · 정렬 레이스(Sort Race)
+  </footer>
+
+  <script>
+    /**
+     * 정렬 레이스(Sort Race) 시뮬레이터 핵심 로직
+     * - 상태 관리: 알고리즘 종류, 데이터 크기(5~30), 초기 상태(무작위/정렬/역순), 재생 속도(느리게/보통/빠르게)
+     * - 비동기 애니메이션 루프 및 중단(초기화) 제어
+     */
+
+    // DOM 요소 참조
+    const barContainer = document.getElementById('bar-container');
+    const compareCountEl = document.getElementById('compare-count');
+    const swapCountEl = document.getElementById('swap-count');
+    const statusMessageEl = document.getElementById('status-message');
+    
+    const algoButtons = document.querySelectorAll('.algo-btn');
+    const orderButtons = document.querySelectorAll('.order-btn');
+    const speedButtons = document.querySelectorAll('.speed-btn');
+    const sizeSlider = document.getElementById('size-slider');
+    const sizeValueEl = document.getElementById('size-value');
+    
+    const startBtn = document.getElementById('start-btn');
+    const resetBtn = document.getElementById('reset-btn');
+    
+    const togglePrincipleBtn = document.getElementById('toggle-principle-btn');
+    const principleContent = document.getElementById('principle-content');
+    const principleArrow = document.getElementById('principle-arrow');
+    const ruleTitleEl = document.getElementById('rule-title');
+    const ruleDescEl = document.getElementById('rule-desc');
+
+    // 시뮬레이터 상태 변수
+    let currentAlgo = 'bubble';     // 'bubble' | 'selection' | 'insertion'
+    let currentOrder = 'random';    // 'random' | 'sorted' | 'reversed'
+    let currentSpeed = 'normal';    // 'slow' | 'normal' | 'fast'
+    let arraySize = 12;             // 5 ~ 30
+    let dataArray = [];             // 1 ~ N 고유 자연수 배열
+    let isSorting = false;          // 정렬 진행 중 여부
+    let abortController = null;     // 실행 중단 제어용 토큰
+
+    let compareCount = 0;
+    let swapCount = 0;
+
+    // 속도 배율 설정
+    const SPEED_MULTIPLIER = {
+      slow: 2.4,
+      normal: 1.0,
+      fast: 0.25
+    };
+
+    // 알고리즘별 원리 설명 텍스트
+    const ALGO_INFO = {
+      bubble: {
+        title: '📌 현재 선택: 버블 정렬 (Bubble Sort)의 동작 규칙',
+        desc: '서로 인접한 두 원소를 차례대로 비교하여, 앞의 값이 뒤의 값보다 크면 서로 자리를 교환합니다. 한 회전이 끝날 때마다 가장 큰 값이 맨 뒤로 이동합니다.'
+      },
+      selection: {
+        title: '📌 현재 선택: 선택 정렬 (Selection Sort)의 동작 규칙',
+        desc: '정렬되지 않은 구간에서 최솟값을 끝까지 찾아낸 뒤, 맨 앞자리의 원소와 한 번만 자리를 교환합니다. 비교는 많이 하지만 교환 횟수가 적은 것이 특징입니다.'
+      },
+      insertion: {
+        title: '📌 현재 선택: 삽입 정렬 (Insertion Sort)의 동작 규칙',
+        desc: '두 번째 원소부터 시작하여, 앞쪽의 이미 정렬된 구간과 비교하며 자신의 올바른 위치에 끼워 넣습니다. 이미 정렬된 데이터에서는 비교만 하고 이동하지 않아 매우 빠릅니다.'
+      }
+    };
+
+    // 지연 함수 (데이터 개수 및 선택된 속도 배율에 따라 딜레이 계산)
+    function sleep(signal) {
+      const baseDelay = Math.max(40, Math.floor(1400 / arraySize));
+      const delayMs = Math.max(12, Math.round(baseDelay * SPEED_MULTIPLIER[currentSpeed]));
+      
+      return new Promise((resolve, reject) => {
+        if (signal && signal.aborted) {
+          return reject(new Error('ABORTED'));
+        }
+        const timer = setTimeout(() => {
+          resolve();
+        }, delayMs);
+
+        if (signal) {
+          signal.addEventListener('abort', () => {
+            clearTimeout(timer);
+            reject(new Error('ABORTED'));
+          }, { once: true });
+        }
+      });
+    }
+
+    // 배열 생성 함수 (1부터 N까지 중복 없는 자연수)
+    function generateArray() {
+      const arr = Array.from({ length: arraySize }, (_, idx) => idx + 1);
+      
+      if (currentOrder === 'sorted') {
+        return arr;
+      } else if (currentOrder === 'reversed') {
+        return arr.reverse();
+      } else {
+        // 무작위 셔플 (Fisher-Yates 알고리즘)
+        for (let i = arr.length - 1; i > 0; i--) {
+          const j = Math.floor(Math.random() * (i + 1));
+          [arr[i], arr[j]] = [arr[j], arr[i]];
+        }
+        return arr;
+      }
+    }
+
+    // 막대그래프 렌더링 함수
+    function renderBars(comparingIndices = [], swappingIndices = [], sortedIndices = []) {
+      barContainer.innerHTML = '';
+      const maxVal = arraySize;
+      const showNumbers = arraySize <= 18;
+
+      dataArray.forEach((value, idx) => {
+        const bar = document.createElement('div');
+        const heightPercent = Math.max(10, Math.round((value / maxVal) * 100));
+        
+        let colorClass = 'bg-blue-500'; // 기본
+        if (sortedIndices.includes(idx)) {
+          colorClass = 'bg-emerald-500'; // 정렬 완료
+        }
+        if (comparingIndices.includes(idx)) {
+          colorClass = 'bg-amber-400 ring-2 ring-amber-500'; // 비교 중
+        }
+        if (swappingIndices.includes(idx)) {
+          colorClass = 'bg-rose-500 ring-2 ring-rose-600'; // 교환/이동 중
+        }
+
+        bar.className = `bar-item flex-1 rounded-t-md flex items-end justify-center pb-1 text-white font-bold text-xs sm:text-sm ${colorClass}`;
+        bar.style.height = `${heightPercent}%`;
+        
+        if (showNumbers) {
+          bar.textContent = value;
+        }
+        barContainer.appendChild(bar);
+      });
+    }
+
+    // 카운터 UI 업데이트
+    function updateCounters() {
+      compareCountEl.textContent = compareCount;
+      swapCountEl.textContent = swapCount;
+    }
+
+    // UI 잠금/해제 제어 (정렬 중 조작 변수 변경 방지, 단 재생 속도는 실시간 변경 허용)
+    function setControlsDisabled(disabled) {
+      sizeSlider.disabled = disabled;
+      startBtn.disabled = disabled;
+      if (disabled) {
+        startBtn.classList.add('opacity-50', 'cursor-not-allowed');
+      } else {
+        startBtn.classList.remove('opacity-50', 'cursor-not-allowed');
+      }
+
+      algoButtons.forEach(btn => {
+        btn.disabled = disabled;
+        btn.classList.toggle('opacity-60', disabled);
+      });
+      orderButtons.forEach(btn => {
+        btn.disabled = disabled;
+        btn.classList.toggle('opacity-60', disabled);
+      });
+    }
+
+    // 시뮬레이터 초기화
+    function resetSimulation() {
+      if (abortController) {
+        abortController.abort();
+        abortController = null;
+      }
+      isSorting = false;
+      setControlsDisabled(false);
+
+      compareCount = 0;
+      swapCount = 0;
+      updateCounters();
+
+      dataArray = generateArray();
+      renderBars();
+      statusMessageEl.textContent = '준비 완료! [정렬 시작] 버튼을 눌러 관찰해 보세요.';
+      statusMessageEl.className = 'mt-3 text-center text-sm sm:text-base font-bold text-slate-700 bg-slate-100 py-2 px-3 rounded-lg';
+    }
+
+    // 1. 버블 정렬 구현
+    async function bubbleSort(signal) {
+      const n = dataArray.length;
+      const sorted = [];
+
+      for (let i = 0; i < n - 1; i++) {
+        let swappedInPass = false;
+        for (let j = 0; j < n - 1 - i; j++) {
+          compareCount++;
+          updateCounters();
+          statusMessageEl.textContent = `${dataArray[j]}와(과) ${dataArray[j + 1]}의 크기를 비교합니다.`;
+          renderBars([j, j + 1], [], sorted);
+          await sleep(signal);
+
+          if (dataArray[j] > dataArray[j + 1]) {
+            swapCount++;
+            updateCounters();
+            statusMessageEl.textContent = `${dataArray[j]} > ${dataArray[j + 1]} 이므로 자리를 교환합니다!`;
+            [dataArray[j], dataArray[j + 1]] = [dataArray[j + 1], dataArray[j]];
+            swappedInPass = true;
+            renderBars([], [j, j + 1], sorted);
+            await sleep(signal);
+          }
+        }
+        sorted.push(n - 1 - i);
+        if (!swappedInPass) {
+          for (let k = 0; k < n - 1 - i; k++) sorted.push(k);
+          break;
+        }
+      }
+      sorted.push(0);
+      renderBars([], [], Array.from({ length: n }, (_, i) => i));
+    }
+
+    // 2. 선택 정렬 구현
+    async function selectionSort(signal) {
+      const n = dataArray.length;
+      const sorted = [];
+
+      for (let i = 0; i < n - 1; i++) {
+        let minIdx = i;
+        for (let j = i + 1; j < n; j++) {
+          compareCount++;
+          updateCounters();
+          statusMessageEl.textContent = `현재 최솟값(${dataArray[minIdx]})과 ${dataArray[j]}을(를) 비교합니다.`;
+          renderBars([minIdx, j], [], sorted);
+          await sleep(signal);
+
+          if (dataArray[j] < dataArray[minIdx]) {
+            minIdx = j;
+          }
+        }
+
+        if (minIdx !== i) {
+          swapCount++;
+          updateCounters();
+          statusMessageEl.textContent = `찾은 최솟값 ${dataArray[minIdx]}을(를) 앞자리 ${dataArray[i]}와(과) 교환합니다!`;
+          [dataArray[i], dataArray[minIdx]] = [dataArray[minIdx], dataArray[i]];
+          renderBars([], [i, minIdx], sorted);
+          await sleep(signal);
+        }
+        sorted.push(i);
+      }
+      renderBars([], [], Array.from({ length: n }, (_, i) => i));
+    }
+
+    // 3. 삽입 정렬 구현
+    async function insertionSort(signal) {
+      const n = dataArray.length;
+      
+      for (let i = 1; i < n; i++) {
+        let j = i;
+        while (j > 0) {
+          compareCount++;
+          updateCounters();
+          statusMessageEl.textContent = `삽입할 값 ${dataArray[j]}을(를) 앞의 ${dataArray[j - 1]}와(과) 비교합니다.`;
+          renderBars([j - 1, j], [], []);
+          await sleep(signal);
+
+          if (dataArray[j - 1] > dataArray[j]) {
+            swapCount++;
+            updateCounters();
+            statusMessageEl.textContent = `${dataArray[j]}이(가) 더 작으므로 왼쪽으로 이동합니다!`;
+            [dataArray[j - 1], dataArray[j]] = [dataArray[j], dataArray[j - 1]];
+            renderBars([], [j - 1, j], []);
+            await sleep(signal);
+            j--;
+          } else {
+            break;
+          }
+        }
+      }
+      renderBars([], [], Array.from({ length: n }, (_, i) => i));
+    }
+
+    // 정렬 실행 핸들러
+    async function startSorting() {
+      if (isSorting) return;
+      
+      compareCount = 0;
+      swapCount = 0;
+      updateCounters();
+
+      isSorting = true;
+      setControlsDisabled(true);
+      abortController = new AbortController();
+      const signal = abortController.signal;
+
+      try {
+        if (currentAlgo === 'bubble') {
+          await bubbleSort(signal);
+        } else if (currentAlgo === 'selection') {
+          await selectionSort(signal);
+        } else if (currentAlgo === 'insertion') {
+          await insertionSort(signal);
+        }
+
+        statusMessageEl.textContent = `🎉 정렬 완료! (총 비교 ${compareCount}회, 교환 ${swapCount}회)`;
+        statusMessageEl.className = 'mt-3 text-center text-sm sm:text-base font-bold text-emerald-800 bg-emerald-100 py-2 px-3 rounded-lg';
+      } catch (err) {
+        if (err.message !== 'ABORTED') {
+          console.error(err);
+        }
+      } finally {
+        isSorting = false;
+        setControlsDisabled(false);
+      }
+    }
+
+    // 이벤트 리스너 등록: 알고리즘 선택
+    algoButtons.forEach(btn => {
+      btn.addEventListener('click', () => {
+        if (isSorting) return;
+        currentAlgo = btn.dataset.algo;
+
+        algoButtons.forEach(b => {
+          const isSelected = b.dataset.algo === currentAlgo;
+          b.className = isSelected
+            ? 'algo-btn py-3.5 px-2 rounded-xl font-bold text-base border-2 border-blue-600 bg-blue-600 text-white shadow-sm transition active:scale-95'
+            : 'algo-btn py-3.5 px-2 rounded-xl font-bold text-base border-2 border-slate-200 bg-slate-50 text-slate-700 hover:bg-slate-100 transition active:scale-95';
+        });
+
+        ruleTitleEl.textContent = ALGO_INFO[currentAlgo].title;
+        ruleDescEl.textContent = ALGO_INFO[currentAlgo].desc;
+
+        resetSimulation();
+      });
+    });
+
+    // 이벤트 리스너 등록: 초기 배열 상태 선택
+    orderButtons.forEach(btn => {
+      btn.addEventListener('click', () => {
+        if (isSorting) return;
+        currentOrder = btn.dataset.order;
+
+        orderButtons.forEach(b => {
+          const isSelected = b.dataset.order === currentOrder;
+          b.className = isSelected
+            ? 'order-btn py-3.5 px-2 rounded-xl font-bold text-sm sm:text-base border-2 border-indigo-600 bg-indigo-600 text-white shadow-sm transition active:scale-95'
+            : 'order-btn py-3.5 px-2 rounded-xl font-bold text-sm sm:text-base border-2 border-slate-200 bg-slate-50 text-slate-700 hover:bg-slate-100 transition active:scale-95';
+        });
+
+        resetSimulation();
+      });
+    });
+
+    // 이벤트 리스너 등록: 재생 속도 선택 (정렬 실행 중에도 즉시 반영)
+    speedButtons.forEach(btn => {
+      btn.addEventListener('click', () => {
+        currentSpeed = btn.dataset.speed;
+
+        speedButtons.forEach(b => {
+          const isSelected = b.dataset.speed === currentSpeed;
+          b.className = isSelected
+            ? 'speed-btn py-3 px-2 rounded-xl font-bold text-sm sm:text-base border-2 border-teal-600 bg-teal-600 text-white shadow-sm transition active:scale-95'
+            : 'speed-btn py-3 px-2 rounded-xl font-bold text-sm sm:text-base border-2 border-slate-200 bg-slate-50 text-slate-700 hover:bg-slate-100 transition active:scale-95';
+        });
+      });
+    });
+
+    // 이벤트 리스너 등록: 데이터 개수 슬라이더
+    sizeSlider.addEventListener('input', (e) => {
+      if (isSorting) return;
+      arraySize = parseInt(e.target.value, 10);
+      sizeValueEl.textContent = arraySize;
+      resetSimulation();
+    });
+
+    // 실행 및 초기화 버튼
+    startBtn.addEventListener('click', startSorting);
+    resetBtn.addEventListener('click', resetSimulation);
+
+    // 원리 영역 접기/펼치기 아코디언
+    let isPrincipleOpen = true;
+    togglePrincipleBtn.addEventListener('click', () => {
+      isPrincipleOpen = !isPrincipleOpen;
+      principleContent.classList.toggle('hidden', !isPrincipleOpen);
+      principleArrow.style.transform = isPrincipleOpen ? 'rotate(0deg)' : 'rotate(-90deg)';
+    });
+
+    // 페이지 로드 시 초기화 실행
+    window.addEventListener('DOMContentLoaded', () => {
+      resetSimulation();
+    });
+  </script>
+</body>
+</html>
